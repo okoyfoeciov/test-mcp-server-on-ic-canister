@@ -19,7 +19,7 @@
     extensions = [];
     workspace = {
       onCreate = {
-        install-dfx = "sh -ci \"$(curl -fsSL https://internetcomputer.org/install.sh)\" && source "$HOME/.local/share/dfx/env";
+        install-dfx = "sh -ci \"$(curl -fsSL https://internetcomputer.org/install.sh)\" && source \"$HOME/.local/share/dfx/env\"";
         # Open editors for the following files by default, if they exist:
         default.openFiles = ["src/main.rs"];
       };
