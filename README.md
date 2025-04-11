@@ -4,4 +4,4 @@
 
 ## Stateless, non-response-verification at the moment!
 
-## Serve at `https://{DEPLOYED_CANISTER_ID}.raw.icp0.io/mcp
+## Serve at `https://{DEPLOYED_CANISTER_ID}.raw.icp0.io/mcp`
