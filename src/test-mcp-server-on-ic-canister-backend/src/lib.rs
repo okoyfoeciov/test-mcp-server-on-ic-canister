@@ -1,4 +1,3 @@
-use candid::Nat;
 use ic_cdk_macros::{query, update};
 use ic_http_certification::{
     HttpRequest,
