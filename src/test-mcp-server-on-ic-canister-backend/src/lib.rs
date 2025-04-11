@@ -19,23 +19,21 @@ fn create_ic_response<'a>(
     body: Vec<u8>,
 ) -> HttpResponse<'a> {
     HttpResponse::builder()
-    .with_status_code(StatusCode::from_u16(status_code).unwrap())
-    .with_headers(headers)
-    .with_body(body)
-    .with_upgrade(false)
-    .build()
+        .with_status_code(StatusCode::from_u16(status_code).unwrap())
+        .with_headers(headers)
+        .with_body(body)
+        .with_upgrade(false)
+        .build()
 }
 
-// Tạo header Content-Type: application/json
 fn json_content_header() -> Vec<(String, String)> {
     vec![
-    ("Content-Type".to_string(), "application/json".to_string()),
+        ("Content-Type".to_string(), "application/json".to_string()),
     ]
 }
 
-// Tạo response lỗi JSON-RPC chuẩn cho IC
 fn create_json_rpc_error_response<'a>(
-    status_code: u16, // HTTP status code (thường là 200 cho lỗi RPC, 400 cho parse)
+    status_code: u16,
     id: Option<serde_json::Value>,
     code: i32,
     message: String,
@@ -45,7 +43,6 @@ fn create_json_rpc_error_response<'a>(
     create_ic_response(status_code, json_content_header(), body_bytes)
 }
 
-// Tạo response thành công JSON-RPC chuẩn cho IC
 fn create_json_rpc_success_response<'a>(
     id: serde_json::Value,
     result: Value,
@@ -55,41 +52,32 @@ fn create_json_rpc_success_response<'a>(
     create_ic_response(200, json_content_header(), body_bytes)
 }
 
-// --- Canister Entry Points ---
-
 #[query]
 fn http_request(req: HttpRequest) -> HttpResponse {
-    ic_cdk::print(format!("Received Query Request: {:?}", req));
-
-    // --- Validation ---
     if req.method() != "POST" || req.url() != MCP_ENDPOINT_PATH {
-        // Chỉ chấp nhận POST đến /mcp
         return create_ic_response(
-            404, // Hoặc 405 Method Not Allowed
+            404,
             vec![],
             format!("Not Found or Method Not Allowed. Use POST to {}", MCP_ENDPOINT_PATH).into_bytes(),
         );
     }
 
-    // --- Parse JSON-RPC Request ---
     let parsed_request: Result<rpc_model::JsonRpcRequest, _> = serde_json::from_slice(&req.body());
 
     match parsed_request {
         Ok(rpc_req) => {
-            let request_id = rpc_req.id.clone(); // Clone ID để sử dụng trong response
+            let request_id = rpc_req.id.clone();
 
             if rpc_req.id.is_some() {
-                // --- Handle JSON-RPC Request ---
                 match rpc_req.method.as_str() {
                     "initialize" | "tools/list" => {
-                         ic_cdk::print(format!("Handling Request Method (Query): {}", rpc_req.method));
-                        // Các method read-only có thể xử lý ngay trong query
+                        ic_cdk::print(format!("Handling Request Method (Query): {}", rpc_req.method));
                         match handler::handle_mcp_request(rpc_req) {
                             Ok(result_value) => {
                                 create_json_rpc_success_response(request_id.unwrap(), result_value)
                             }
                             Err(rpc_error) => create_json_rpc_error_response(
-                                200, // Lỗi RPC vẫn trả về HTTP 200 OK
+                                200,
                                 request_id,
                                 rpc_error.code,
                                 rpc_error.message,
@@ -97,47 +85,41 @@ fn http_request(req: HttpRequest) -> HttpResponse {
                         }
                     }
                     "tools/call" => {
-                         ic_cdk::print(format!("Requesting Upgrade for Method: {}", rpc_req.method));
-                        // tools/call có thể thay đổi state, yêu cầu upgrade lên update call
+                        ic_cdk::print(format!("Requesting Upgrade for Method: {}", rpc_req.method));
                         HttpResponse::builder()
                             .with_status_code(StatusCode::OK)
                             .with_upgrade(true)
                             .build()
                     }
                     _ => {
-                         ic_cdk::print(format!("Method Not Found (Query): {}", rpc_req.method));
-                        // Method không được hỗ trợ
+                        ic_cdk::print(format!("Method Not Found (Query): {}", rpc_req.method));
                         create_json_rpc_error_response(
                             200,
                             request_id,
-                            -32601, // Method not found
+                            -32601,
                             format!("Method not found: {}", rpc_req.method),
                         )
                     }
                 }
             } else {
-                // --- Handle JSON-RPC Notification ---
-                 ic_cdk::print(format!("Handling Notification (Query): {}", rpc_req.method));
+                ic_cdk::print(format!("Handling Notification (Query): {}", rpc_req.method));
                 match handler::handle_mcp_notification(rpc_req) {
                     Ok(_) => {
-                         // Trả về HTTP 202 Accepted cho notification thành công
-                         create_ic_response(202, vec![], vec![])
+                        create_ic_response(202, vec![], vec![])
                     }
                     Err(e) => {
-                         // Handler notification không nên trả lỗi, nhưng nếu có thì log
-                         ic_cdk::print(format!("Error handling notification (ignored): {}", e));
-                         create_ic_response(202, vec![], vec![])
+                        ic_cdk::print(format!("Error handling notification (ignored): {}", e));
+                        create_ic_response(202, vec![], vec![])
                     }
                 }
             }
         }
         Err(e) => {
-             ic_cdk::print(format!("JSON Parse Error (Query): {}", e));
-            // Lỗi parse JSON
+            ic_cdk::print(format!("JSON Parse Error (Query): {}", e));
             create_json_rpc_error_response(
-                400, // Bad Request
+                400,
                 None,
-                -32700, // Parse error
+                -32700,
                 format!("Parse error: {}", e),
             )
         }
@@ -148,16 +130,14 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 fn http_request_update(req: HttpRequest) -> HttpResponse {
     ic_cdk::print(format!("Received Update Request: {:?}", req));
 
-    // --- Validation (Update calls chỉ nên đến từ upgrade) ---
-     if req.method() != "POST" || req.url() != MCP_ENDPOINT_PATH {
+    if req.method() != "POST" || req.url() != MCP_ENDPOINT_PATH {
         return create_ic_response(
-            400, // Bad Request - Update call không nên đến trực tiếp sai method/url
+            400,
             vec![],
             "Bad Request: Update call received for invalid method or URL".as_bytes().to_vec(),
         );
     }
 
-    // --- Parse JSON-RPC Request ---
     let parsed_request: Result<rpc_model::JsonRpcRequest, _> = serde_json::from_slice(&req.body());
 
     match parsed_request {
@@ -165,51 +145,47 @@ fn http_request_update(req: HttpRequest) -> HttpResponse {
             let request_id = rpc_req.id.clone();
 
             if rpc_req.id.is_none() {
-                 ic_cdk::print("Rejecting Update: Received Notification in update call");
-                 // Không nên nhận notification trong update call
-                 return create_json_rpc_error_response(
-                    400, // Bad Request
+                ic_cdk::print("Rejecting Update: Received Notification in update call");
+                return create_json_rpc_error_response(
+                    400,
                     None,
-                    -32600, // Invalid Request
+                    -32600,
                     "Cannot process notifications in update call".to_string()
                 );
             }
 
-             // --- Handle JSON-RPC Request (chỉ method được upgrade) ---
             match rpc_req.method.as_str() {
                 "tools/call" => {
-                     ic_cdk::print(format!("Handling Request Method (Update): {}", rpc_req.method));
-                     match handler::handle_mcp_request(rpc_req) {
+                    ic_cdk::print(format!("Handling Request Method (Update): {}", rpc_req.method));
+                    match handler::handle_mcp_request(rpc_req) {
                         Ok(result_value) => {
                             create_json_rpc_success_response(request_id.unwrap(), result_value)
                         }
                         Err(rpc_error) => create_json_rpc_error_response(
-                            200, // Lỗi RPC vẫn trả về HTTP 200 OK
+                            200,
                             request_id,
                             rpc_error.code,
                             rpc_error.message,
                         ),
                     }
                 }
-                 _ => {
+                _ => {
                     ic_cdk::print(format!("Invalid Method for Update Call: {}", rpc_req.method));
-                    // Method không hợp lệ cho update call (chỉ mong đợi những cái đã upgrade)
                     create_json_rpc_error_response(
-                        400, // Bad Request
+                        400,
                         request_id,
-                        -32601, // Method not found (hoặc Invalid Request)
+                        -32601,
                         format!("Invalid method for update call: {}", rpc_req.method),
                     )
-                 }
+                }
             }
         }
         Err(e) => {
-             ic_cdk::print(format!("JSON Parse Error (Update): {}", e));
-            // Lỗi parse JSON
+            ic_cdk::print(format!("JSON Parse Error (Update): {}", e));
             create_json_rpc_error_response(
-                400, // Bad Request
+                400,
                 None,
-                -32700, // Parse error
+                -32700,
                 format!("Parse error: {}", e),
             )
         }
