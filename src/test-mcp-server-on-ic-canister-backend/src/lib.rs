@@ -13,11 +13,11 @@ mod rpc_model;
 
 const MCP_ENDPOINT_PATH: &str = "/mcp";
 
-fn create_ic_response(
+fn create_ic_response<'a>(
     status_code: u16,
     headers: Vec<(String, String)>,
     body: Vec<u8>,
-) -> HttpResponse<'static> {
+) -> HttpResponse<'a> {
     HttpResponse::builder()
     .with_status_code(StatusCode::from_u16(status_code).unwrap())
     .with_headers(headers)
@@ -34,22 +34,22 @@ fn json_content_header() -> Vec<(String, String)> {
 }
 
 // Tạo response lỗi JSON-RPC chuẩn cho IC
-fn create_json_rpc_error_response(
+fn create_json_rpc_error_response<'a>(
     status_code: u16, // HTTP status code (thường là 200 cho lỗi RPC, 400 cho parse)
     id: Option<serde_json::Value>,
     code: i32,
     message: String,
-) -> HttpResponse<'static> {
+) -> HttpResponse<'a> {
     let rpc_response = rpc_model::create_error_response(id, code, message);
     let body_bytes = serde_json::to_vec(&rpc_response).unwrap_or_default();
     create_ic_response(status_code, json_content_header(), body_bytes)
 }
 
 // Tạo response thành công JSON-RPC chuẩn cho IC
-fn create_json_rpc_success_response(
+fn create_json_rpc_success_response<'a>(
     id: serde_json::Value,
     result: Value,
-) -> HttpResponse<'static> {
+) -> HttpResponse<'a> {
     let rpc_response = rpc_model::create_success_response(id, result);
     let body_bytes = serde_json::to_vec(&rpc_response).unwrap_or_default();
     create_ic_response(200, json_content_header(), body_bytes)
