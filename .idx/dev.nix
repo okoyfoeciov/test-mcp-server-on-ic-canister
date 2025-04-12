@@ -6,7 +6,7 @@
   # Use https://search.nixos.org/packages to find packages
   packages = [
     pkgs.rustc
-    pkgs.rustfmc
+    pkgs.rustfmt
     pkgs.cargo
     pkgs.nodejs
     pkgs.gcc
