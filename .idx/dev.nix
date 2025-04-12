@@ -5,11 +5,12 @@
   channel = "stable-24.11"; # or "unstable"
   # Use https://search.nixos.org/packages to find packages
   packages = [
-    pkgs.cargo
     pkgs.rustc
-    pkgs.rustfmt
-    pkgs.stdenv.cc
+    pkgs.rustfmc
+    pkgs.cargo
     pkgs.nodejs
+    pkgs.gcc
+    pkgs.lld
   ];
   # Sets environment variables in the workspace
   env = {
@@ -27,7 +28,7 @@
       onCreate = {
         install-dfx = "DFXVM_INIT_YES=true sh -ci \"$(curl -fsSL https://internetcomputer.org/install.sh)\" && source \"$HOME/.local/share/dfx/env\"";
         # Open editors for the following files by default, if they exist:
-        default.openFiles = ["README.md"];
+        default.openFiles = ["src/lib.rs"];
       };
     };
     # Enable previews and customize configuration
