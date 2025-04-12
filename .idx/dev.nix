@@ -2,12 +2,13 @@
 # see: https://firebase.google.com/docs/studio/customize-workspace
 { pkgs, ... }: {
   # Which nixpkgs channel to use.
-  channel = "stable-24.05"; # or "unstable"
+  channel = "stable-24.11"; # or "unstable"
   # Use https://search.nixos.org/packages to find packages
   packages = [
     pkgs.cargo
     pkgs.rustc
     pkgs.rustfmt
+    pkgs.stdenv.cc
     pkgs.nodejs
   ];
   # Sets environment variables in the workspace
@@ -16,10 +17,15 @@
   };
   idx = {
     # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id"
-    extensions = [];
+    extensions = [
+      "rust-lang.rust-analyzer"
+      "tamasfe.even-better-toml"
+      "serayuzgur.crates"
+      "vadimcn.vscode-lldb"
+    ];
     workspace = {
       onCreate = {
-        install-dfx = "sh -ci \"$(curl -fsSL https://internetcomputer.org/install.sh)\" && source \"$HOME/.local/share/dfx/env\"";
+        install-dfx = "DFXVM_INIT_YES=true sh -ci \"$(curl -fsSL https://internetcomputer.org/install.sh)\" && source \"$HOME/.local/share/dfx/env\"";
         # Open editors for the following files by default, if they exist:
         default.openFiles = ["src/main.rs"];
       };
