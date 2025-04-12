@@ -11,7 +11,7 @@ pub fn handle_mcp_request(req: JsonRpcRequest) -> Result<Value, JsonRpcError> {
         "tools/list" => handle_tools_list().map(|res| json!(res)),
         "tools/call" => handle_tools_call(req.params).map(|res| json!(res)),
         _ => Err(JsonRpcError {
-            code: -32601, // Method not found
+            code: -32601,
             message: format!("Method not found: {}", req.method),
             data: None,
         }),
@@ -19,31 +19,24 @@ pub fn handle_mcp_request(req: JsonRpcRequest) -> Result<Value, JsonRpcError> {
 }
 
 pub fn handle_initialize(params: Option<Value>) -> Result<InitializeResult, JsonRpcError> {
-    println!("Handling initialize request...");
-    // Parse params (không thực sự sử dụng trong ví dụ minimal này, nhưng nên có)
     let _init_params: InitializeParams = params
         .map(|p| serde_json::from_value(p))
         .transpose()
         .map_err(|e| JsonRpcError {
-            code: -32602, // Invalid params
+            code: -32602,
             message: format!("Invalid initialize params: {}", e),
             data: None,
         })?
         .ok_or_else(|| JsonRpcError {
-            code: -32602, // Invalid params
+            code: -32602,
             message: "Missing initialize params".to_string(),
             data: None,
         })?;
 
-    // TODO: Kiểm tra protocolVersion của client nếu cần thiết
-
-    println!("Client capabilities received (ignored in minimal server)");
-
     Ok(InitializeResult {
         protocol_version: PROTOCOL_VERSION.to_string(),
         capabilities: ServerCapabilities {
-            tools: Some(ToolCapability{}), // Báo là có support tool
-            // Các capabilities khác mặc định là None/Default
+            tools: Some(ToolCapability{}),
             ..Default::default()
         },
         server_info: ServerInfo {
@@ -55,7 +48,6 @@ pub fn handle_initialize(params: Option<Value>) -> Result<InitializeResult, Json
 }
 
 pub fn handle_tools_list() -> Result<ToolsListResult, JsonRpcError> {
-     println!("Handling tools/list request...");
     let add_tool = Tool {
         name: "add".to_string(),
         description: "Adds two numbers (a and b)".to_string(),
@@ -72,30 +64,29 @@ pub fn handle_tools_list() -> Result<ToolsListResult, JsonRpcError> {
 
     Ok(ToolsListResult {
         tools: vec![add_tool],
-        next_cursor: None, // Không support pagination
+        next_cursor: None,
     })
 }
 
 
 pub fn handle_tools_call(params: Option<Value>) -> Result<CallResult, JsonRpcError> {
-    println!("Handling tools/call request...");
     let call_params: CallParams = params
         .map(|p| serde_json::from_value(p))
         .transpose()
         .map_err(|e| JsonRpcError {
-            code: -32602, // Invalid params
+            code: -32602,
             message: format!("Invalid tools/call params: {}", e),
             data: None,
         })?
         .ok_or_else(|| JsonRpcError {
-            code: -32602, // Invalid params
+            code: -32602,
             message: "Missing tools/call params".to_string(),
             data: None,
         })?;
 
     if call_params.name != "add" {
         return Err(JsonRpcError {
-            code: -32602, // Invalid params (hoặc có thể là -32002 Resource not found nếu coi tool là resource)
+            code: -32602,
             message: format!("Unknown tool name: {}", call_params.name),
             data: None,
         });
@@ -121,21 +112,16 @@ pub fn handle_tools_call(params: Option<Value>) -> Result<CallResult, JsonRpcErr
     })
 }
 
-// Hàm helper để xử lý notification
 pub fn handle_mcp_notification(req: JsonRpcRequest) -> Result<(), String> {
-     match req.method.as_str() {
+    match req.method.as_str() {
         "notifications/initialized" => {
-            println!("Received initialized notification from client. Ready for full operation.");
-            Ok(()) // Không làm gì cả, chỉ log
+            Ok(())
         }
         "notifications/cancelled" => {
-             println!("Received cancellation notification (ignored): {:?}", req.params);
-             Ok(())
+            Ok(())
         }
         _ => {
-            println!("Received unknown notification: {}", req.method);
-            // Không trả về lỗi cho notification không xác định
-             Ok(())
+            Ok(())
         }
     }
 }
