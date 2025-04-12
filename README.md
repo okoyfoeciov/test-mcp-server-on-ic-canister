@@ -11,12 +11,12 @@ Stateless, non-response-verification at the moment!
 ```sh
 dfx deploy --playground
 ```
-Serve at `https://{DEPLOYED_CANISTER_ID}.raw.icp0.io/mcp`
+Serve at `https://{DEPLOYED_CANISTER_ID}.icp0.io/mcp`
 
 *Example request*:
 ```sh
 curl --request POST \
-  --url https://${DEPLOYED_CANISTER_ID}.raw.icp0.io/mcp \
+  --url https://${DEPLOYED_CANISTER_ID}.icp0.io/mcp \
   --header 'Accept: application/json' \
   --header 'Content-Type: application/json' \
   --data '{

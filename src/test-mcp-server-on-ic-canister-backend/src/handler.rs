@@ -111,17 +111,3 @@ pub fn handle_tools_call(params: Option<Value>) -> Result<CallResult, JsonRpcErr
         is_error: false,
     })
 }
-
-pub fn handle_mcp_notification(req: JsonRpcRequest) -> Result<(), String> {
-    match req.method.as_str() {
-        "notifications/initialized" => {
-            Ok(())
-        }
-        "notifications/cancelled" => {
-            Ok(())
-        }
-        _ => {
-            Ok(())
-        }
-    }
-}
