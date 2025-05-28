@@ -14,7 +14,7 @@ ic-cdk = "0.13"
 ic-cdk-macros = "0.13"
 ic-http-certification = "3.0.3"
 
-rmcp = { git = "https://github.com/okoyfoeciov/rust-sdk", branch = "main" }
+rmcp = { git = "https://github.com/modelcontext-protocol/rust-sdk", branch = "main" }
 ic_rmcp = { git = "https://github.com/ByteSmithLabs/ic-rmcp" , branch = "main" }
 serde_json = "1"
 serde = { version = "1", features = ["derive"] }
