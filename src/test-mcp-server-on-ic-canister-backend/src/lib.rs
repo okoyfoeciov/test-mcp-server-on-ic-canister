@@ -1,9 +1,9 @@
 use ic_cdk_macros::{query, update};
 use ic_http_certification::{HttpRequest, HttpResponse, StatusCode};
-use ic_rmcp::{handler::Handler, server::Server};
+use ic_rmcp::{Handler, Server};
 use rmcp::{Error, model::*};
-use serde_json::{json, from_value, Value};
 use serde::{Deserialize, Serialize};
+use serde_json::{Value, from_value, json};
 use std::borrow::Cow;
 
 #[query]
@@ -62,19 +62,13 @@ impl Handler for Adder {
                 }
 
                 match requests.arguments {
-                    None => {
-                        Err(Error::invalid_params("invalid arguments to tool add", None))
+                    None => Err(Error::invalid_params("invalid arguments to tool add", None)),
+                    Some(data) => match from_value::<AddArgs>(Value::Object(data)) {
+                        Err(_) => Err(Error::invalid_params("invalid arguments to tool add", None)),
+                        Ok(args) => Ok(CallToolResult::success(
+                            Content::text(format!("{:.2}", args.a + args.b)).into_contents(),
+                        )),
                     },
-                    Some(data) => {
-                        match from_value::<AddArgs>(Value::Object(data)) {
-                            Err(_) => {
-                                Err(Error::invalid_params("invalid arguments to tool add", None))
-                            },
-                             Ok(args) => {
-                                Ok(CallToolResult::success(Content::text(format!("{:.2}", args.a + args.b)).into_contents()))
-                             }
-                        }
-                    }
                 }
             }
             _ => Err(Error::invalid_params("not found tool", None)),

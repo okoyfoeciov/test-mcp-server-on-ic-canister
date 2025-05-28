@@ -499,7 +499,7 @@ dependencies = [
 [[package]]
 name = "ic_rmcp"
 version = "0.1.0"
-source = "git+https://github.com/ByteSmithLabs/ic-rmcp?branch=main#bcd1d5d1aa25c3db76b54fd43af1f14a91c02b15"
+source = "git+https://github.com/ByteSmithLabs/ic-rmcp?branch=main#75dcfd307f8fbfe98f261a7404e741ae49e28af6"
 dependencies = [
  "ic-http-certification",
  "rmcp",
