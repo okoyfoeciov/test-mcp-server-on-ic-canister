@@ -1,117 +1,90 @@
 use ic_cdk_macros::{query, update};
-use ic_http_certification::{HttpRequest, HttpResponse};
-
-use ic_http_certification::http::StatusCode;
-
-use serde_json::Value;
-
-mod handler;
-mod rpc_model;
-
-const MCP_ENDPOINT_PATH: &str = "/mcp";
-
-fn create_ic_response<'a>(
-    status_code: u16,
-    headers: Vec<(String, String)>,
-    body: Vec<u8>,
-) -> HttpResponse<'a> {
-    HttpResponse::builder()
-        .with_status_code(StatusCode::from_u16(status_code).unwrap())
-        .with_headers(headers)
-        .with_body(body)
-        .with_upgrade(false)
-        .build()
-}
-
-fn json_content_header() -> Vec<(String, String)> {
-    vec![("Content-Type".to_string(), "application/json".to_string())]
-}
-
-fn create_json_rpc_error_response<'a>(
-    status_code: u16,
-    id: Option<serde_json::Value>,
-    code: i32,
-    message: String,
-) -> HttpResponse<'a> {
-    let rpc_response = rpc_model::create_error_response(id, code, message);
-    let body_bytes = serde_json::to_vec(&rpc_response).unwrap_or_default();
-    create_ic_response(status_code, json_content_header(), body_bytes)
-}
-
-fn create_json_rpc_success_response<'a>(id: serde_json::Value, result: Value) -> HttpResponse<'a> {
-    let rpc_response = rpc_model::create_success_response(id, result);
-    let body_bytes = serde_json::to_vec(&rpc_response).unwrap_or_default();
-    create_ic_response(200, json_content_header(), body_bytes)
-}
+use ic_http_certification::{HttpRequest, HttpResponse, StatusCode};
+use ic_rmcp::{handler::Handler, server::Server};
+use rmcp::{Error, model::*};
+use serde_json::{json, from_value, Value};
+use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 #[query]
-fn http_request(req: HttpRequest) -> HttpResponse {
-    if req.method() != "POST" || req.url() != MCP_ENDPOINT_PATH {
-        return create_ic_response(
-            404,
-            vec![],
-            format!(
-                "Not Found or Method Not Allowed. Use POST to {}",
-                MCP_ENDPOINT_PATH
-            )
-            .into_bytes(),
-        );
-    }
-
+fn http_request(_: HttpRequest) -> HttpResponse {
     HttpResponse::builder()
         .with_status_code(StatusCode::OK)
         .with_upgrade(true)
         .build()
 }
 
-#[update]
-fn http_request_update(req: HttpRequest) -> HttpResponse {
-    if req.method() != "POST" || req.url() != MCP_ENDPOINT_PATH {
-        return create_ic_response(
-            404,
-            vec![],
-            format!(
-                "Not Found or Method Not Allowed. Use POST to {}",
-                MCP_ENDPOINT_PATH
-            )
-            .into_bytes(),
-        );
+struct Adder;
+
+impl Handler for Adder {
+    fn get_info(&self) -> ServerInfo {
+        ServerInfo {
+            protocol_version: ProtocolVersion::default(),
+            capabilities: ServerCapabilities::builder().enable_tools().build(),
+            server_info: Implementation {
+                name: "Adder MCP".to_string(),
+                version: "1.0.0".to_string(),
+            },
+            instructions: None,
+        }
     }
 
-    let parsed_request: Result<rpc_model::JsonRpcRequest, _> = serde_json::from_slice(&req.body());
+    async fn list_tools(&self, _: Option<PaginatedRequestParam>) -> Result<ListToolsResult, Error> {
+        Ok(ListToolsResult {
+            next_cursor: None,
+            tools: vec![Tool::new(
+                "add",
+                "Add two numbers",
+                object(json!({
+                    "type": "object",
+                    "properties": {
+                        "a": { "type": "number", "description": "The first number" },
+                        "b": { "type": "number", "description": "The second number" }
+                    },
+                    "required": ["a", "b"]
+                })),
+            )],
+        })
+    }
 
-    match parsed_request {
-        Ok(rpc_req) => {
-            let request_id = rpc_req.id.clone();
+    async fn call_tool(&self, requests: CallToolRequestParam) -> Result<CallToolResult, Error> {
+        let name = match requests.name {
+            Cow::Borrowed(s) => s,
+            Cow::Owned(ref s) => s,
+        };
 
-            if rpc_req.id.is_none() {
-                return create_ic_response(202, vec![], vec![]);
-            }
+        match name {
+            "add" => {
+                #[derive(Serialize, Deserialize)]
+                struct AddArgs {
+                    a: f64,
+                    b: f64,
+                }
 
-            match rpc_req.method.as_str() {
-                "initialize" | "tools/list" | "tools/call" => {
-                    match handler::handle_mcp_request(rpc_req) {
-                        Ok(result_value) => {
-                            create_json_rpc_success_response(request_id.unwrap(), result_value)
+                match requests.arguments {
+                    None => {
+                        Err(Error::invalid_params("invalid arguments to tool add", None))
+                    },
+                    Some(data) => {
+                        match from_value::<AddArgs>(Value::Object(data)) {
+                            Err(_) => {
+                                Err(Error::invalid_params("invalid arguments to tool add", None))
+                            },
+                             Ok(args) => {
+                                Ok(CallToolResult::success(Content::text(format!("{:.2}", args.a + args.b)).into_contents()))
+                             }
                         }
-                        Err(rpc_error) => create_json_rpc_error_response(
-                            200,
-                            request_id,
-                            rpc_error.code,
-                            rpc_error.message,
-                        ),
                     }
                 }
-                _ => create_json_rpc_error_response(
-                    200,
-                    request_id,
-                    -32601,
-                    format!("Method not found"),
-                ),
             }
+            _ => Err(Error::invalid_params("not found tool", None)),
         }
-        Err(e) => create_json_rpc_error_response(400, None, -32700, format!("Parse error: {}", e)),
     }
 }
 
-candid::export_service!();
+#[update]
+async fn http_request_update(req: HttpRequest<'_>) -> HttpResponse<'_> {
+    Adder {}.handle(req).await
+}
+
+ic_cdk::export_candid!();
